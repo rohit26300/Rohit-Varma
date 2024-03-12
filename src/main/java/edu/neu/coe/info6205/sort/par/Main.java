@@ -45,7 +45,7 @@ public class Main {
             BufferedWriter bw = new BufferedWriter(isr);
             int j = 0;
             for (long i : timeList) {
-                String content = (double) 10000 * (j + 1) / 2000000 + "," + (double) i / 10 + "\n";
+                String content = (double) 10000 * (j + 1) / 3000000 + "," + (double) i / 10 + "\n";
                 j++;
                 bw.write(content);
                 bw.flush();
