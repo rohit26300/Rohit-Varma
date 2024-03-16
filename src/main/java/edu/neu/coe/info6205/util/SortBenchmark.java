@@ -3,13 +3,8 @@
  */
 package edu.neu.coe.info6205.util;
 
-import edu.neu.coe.info6205.sort.BaseHelper;
-import edu.neu.coe.info6205.sort.Helper;
-import edu.neu.coe.info6205.sort.SortWithHelper;
-import edu.neu.coe.info6205.sort.elementary.BubbleSort;
-import edu.neu.coe.info6205.sort.elementary.InsertionSort;
-import edu.neu.coe.info6205.sort.elementary.RandomSort;
-import edu.neu.coe.info6205.sort.elementary.ShellSort;
+import edu.neu.coe.info6205.sort.*;
+import edu.neu.coe.info6205.sort.elementary.*;
 import edu.neu.coe.info6205.sort.linearithmic.TimSort;
 import edu.neu.coe.info6205.sort.linearithmic.*;
 
@@ -40,10 +35,9 @@ public class SortBenchmark {
         logger.info("SortBenchmark.main: " + config.get("SortBenchmark", "version") + " with word counts: " + Arrays.toString(args));
         if (args.length == 0) logger.warn("No word counts specified on the command line");
         SortBenchmark benchmark = new SortBenchmark(config);
+        benchmark.sortIntegersByShellSort(config.getInt("shellsort", "n", 100000));
         benchmark.sortStrings(Arrays.stream(args).map(Integer::parseInt));
-        if (benchmark.isConfigBenchmarkIntegerSorter("shellSort"))
-            benchmark.sortIntegersByShellSort(config.getInt("shellsort", "n", 100000));
-//        benchmark.sortLocalDateTimes(config.getInt("benchmarkdatesorters", "n", 100000), config);
+        benchmark.sortLocalDateTimes(config.getInt("benchmarkdatesorters", "n", 100000), config);
     }
 
     public void sortLocalDateTimes(final int n, Config config) throws IOException {
@@ -80,11 +74,18 @@ public class SortBenchmark {
         logger.info("Testing pure sorts with " + formatWhole(nRuns) + " runs of sorting " + formatWhole(nWords) + " words");
         Random random = new Random();
 
-        if (isConfigBenchmarkStringSorter("puresystemsort"))
-            runPureSystemSortBenchmark(words, nWords, nRuns, random);
+        if (isConfigBenchmarkStringSorter("puresystemsort")) {
+            Benchmark<String[]> benchmark = new Benchmark_Timer<>("SystemSort", null, Arrays::sort, null);
+            doPureBenchmark(words, nWords, nRuns, random, benchmark);
+        }
 
-        if (isConfigBenchmarkStringSorter("mergesort"))
-            runMergeSortBenchmark(words, nWords, nRuns, isConfigBenchmarkMergeSort("insurance"), isConfigBenchmarkMergeSort("nocopy"));
+        if (isConfigBenchmarkStringSorter("mergesort")) {
+            Helper<String> helper = null;
+            runMergeSortBenchmark(words, nWords, nRuns, false, false);
+//            runMergeSortBenchmark(words, nWords, nRuns, true, false, helper);
+//            runMergeSortBenchmark(words, nWords, nRuns, false, true, helper);
+//            runMergeSortBenchmark(words, nWords, nRuns, true, true, helper);
+        }
 
         if (isConfigBenchmarkStringSorter("quicksort3way"))
             runStringSortBenchmark(words, nWords, nRuns, new QuickSort_3way<>(nWords, config), timeLoggersLinearithmic);
@@ -94,6 +95,11 @@ public class SortBenchmark {
 
         if (isConfigBenchmarkStringSorter("quicksort"))
             runStringSortBenchmark(words, nWords, nRuns, new QuickSort_Basic<>(nWords, config), timeLoggersLinearithmic);
+
+        if (isConfigBenchmarkStringSorter("heapsort")) {
+            Helper<String> helper = HelperFactory.create("Heapsort", nWords, config);
+            runStringSortBenchmark(words, nWords, nRuns, new HeapSort<>(helper), timeLoggersLinearithmic);
+        }
 
         if (isConfigBenchmarkStringSorter("introsort"))
             runStringSortBenchmark(words, nWords, nRuns, new IntroSort<>(nWords, config), timeLoggersLinearithmic);
@@ -124,19 +130,39 @@ public class SortBenchmark {
         logger.info("Testing with " + formatWhole(nRuns) + " runs of sorting " + formatWhole(nWords) + " words" + (config.isInstrumented() ? " and instrumented" : ""));
         Random random = new Random();
 
-        if (isConfigBenchmarkStringSorter("puresystemsort")) runPureSystemSortBenchmark(words, nWords, nRuns, random);
 
-        if (isConfigBenchmarkStringSorter("mergesort"))
-            runMergeSortBenchmark(words, nWords, nRuns, isConfigBenchmarkMergeSort("insurance"), isConfigBenchmarkMergeSort("nocopy"));
+        if (isConfigBenchmarkStringSorter("puresystemsort")) {
+            Benchmark<String[]> benchmark = new Benchmark_Timer<>("SystemSort", null, Arrays::sort, null);
+            doPureBenchmark(words, nWords, nRuns, random, benchmark);
+        }
+
+        if (isConfigBenchmarkStringSorter("mergesort")) {
+            Helper<String> helper = HelperFactory.create("Merge Sort", nWords, config);
+//            runMergeSortBenchmark(words, nWords, nRuns, false, false, helper);
+            //runMergeSortBenchmark(words, nWords, nRuns, true, false);
+            //runMergeSortBenchmark(words, nWords, nRuns, false, true);
+            runMergeSortBenchmark(words, nWords, nRuns, true, true,helper);
+            System.out.println(helper.showStats());
+        }
 
         if (isConfigBenchmarkStringSorter("quicksort3way"))
             runStringSortBenchmark(words, nWords, nRuns, new QuickSort_3way<>(nWords, config), timeLoggersLinearithmic);
 
-        if (isConfigBenchmarkStringSorter("quicksortDualPivot"))
-            runStringSortBenchmark(words, nWords, nRuns, new QuickSort_DualPivot<>(nWords, config), timeLoggersLinearithmic);
-
+        if (isConfigBenchmarkStringSorter("quicksortDualPivot")) {
+            Helper<String> helper = HelperFactory.create("Dual Pivot Quick Sort", nWords, config);
+            runStringSortBenchmark(words, nWords, nRuns, new QuickSort_DualPivot<>(helper), timeLoggersLinearithmic);
+            System.out.println(helper.showStats());
+        }
         if (isConfigBenchmarkStringSorter("quicksort"))
             runStringSortBenchmark(words, nWords, nRuns, new QuickSort_Basic<>(nWords, config), timeLoggersLinearithmic);
+
+
+        if (isConfigBenchmarkStringSorter("heapsort")) {
+            Helper<String> helper = null;
+            helper = HelperFactory.create("Heapsort", nWords, config);
+            runStringSortBenchmark(words, nWords, nRuns, new HeapSort<>(helper), timeLoggersLinearithmic);
+            System.out.println(helper.showStats());
+        }
 
         if (isConfigBenchmarkStringSorter("introsort"))
             runStringSortBenchmark(words, nWords, nRuns, new IntroSort<>(nWords, config), timeLoggersLinearithmic);
@@ -151,11 +177,8 @@ public class SortBenchmark {
         // NOTE: this is very slow of course, so recommendation is not to enable this option.
         if (isConfigBenchmarkStringSorter("bubblesort"))
             runStringSortBenchmark(words, nWords, nRuns / 10, new BubbleSort<>(nWords, config), timeLoggersQuadratic);
-    }
 
-    private static void runPureSystemSortBenchmark(String[] words, int nWords, int nRuns, Random random) {
-        Benchmark<String[]> benchmark = new Benchmark_Timer<>("SystemSort", null, Arrays::sort, null);
-        doPureBenchmark(words, nWords, nRuns, random, benchmark);
+//        System.out.println(helper.showStats());
     }
 
     // CONSIDER generifying common code (but it's difficult if not impossible)
@@ -346,6 +369,11 @@ public class SortBenchmark {
 //        runDateTimeSortBenchmark(LocalDateTime.class, localDateTimes, 100000, 100, i);
 //    }
 
+    private void runMergeSortBenchmark(String[] words, int nWords, int nRuns, Boolean insurance, Boolean noCopy, Helper<String> helper) {
+        Config x = config.copy(MergeSort.MERGESORT, MergeSort.INSURANCE, insurance.toString()).copy(MergeSort.MERGESORT, MergeSort.NOCOPY, noCopy.toString());
+        runStringSortBenchmark(words, nWords, nRuns, new MergeSort<>(helper), timeLoggersLinearithmic);
+    }
+
     private void runMergeSortBenchmark(String[] words, int nWords, int nRuns, Boolean insurance, Boolean noCopy) {
         Config x = config.copy(MergeSort.MERGESORT, MergeSort.INSURANCE, insurance.toString()).copy(MergeSort.MERGESORT, MergeSort.NOCOPY, noCopy.toString());
         runStringSortBenchmark(words, nWords, nRuns, new MergeSort<>(nWords, x), timeLoggersLinearithmic);
@@ -379,10 +407,6 @@ public class SortBenchmark {
 
     private boolean isConfigBenchmarkStringSorter(String option) {
         return isConfigBoolean("benchmarkstringsorters", option);
-    }
-
-    private boolean isConfigBenchmarkMergeSort(String option) {
-        return isConfigBoolean("mergesort", option);
     }
 
     private boolean isConfigBenchmarkDateSorter(String option) {
